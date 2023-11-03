@@ -1,0 +1,3 @@
+## News Searcher
+
+Information Retrieval
