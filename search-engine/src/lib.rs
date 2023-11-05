@@ -1,5 +1,5 @@
 use anyhow::Result;
-use j4rs::{ClasspathEntry, Instance, InvocationArg, Jvm, JvmBuilder};
+use j4rs::{ClasspathEntry, Instance, InvocationArg, Jvm, JvmBuilder, MavenArtifact};
 pub struct Pipeline(Instance);
 impl Pipeline {
     pub fn new(jvm: &Jvm) -> Result<Self> {
@@ -40,6 +40,16 @@ impl VnCoreNLP {
         let pipeline = Pipeline::new(&jvm)?;
         Ok(VnCoreNLP { jvm, pipeline })
     }
+    pub fn new_new() -> Result<VnCoreNLP> {
+        let entry = ClasspathEntry::new("VnCoreNLP/target/classes");
+        let entry2 = ClasspathEntry::new("VnCoreNLP/log4j-1.2.17.jar");
+        let jvm: Jvm = JvmBuilder::new()
+            .classpath_entry(entry)
+            .classpath_entry(entry2)
+            .build()?;
+        let pipeline = Pipeline::new(&jvm)?;
+        Ok(VnCoreNLP { jvm, pipeline })
+    }
 }
 pub fn get_vncorenlp() -> Result<Jvm> {
     let entry: ClasspathEntry<'_> = ClasspathEntry::new("VnCoreNLP/VnCoreNLP-1.2.jar");
@@ -55,7 +65,8 @@ pub fn get_pipeline_instance(jvm: &Jvm) -> Result<Instance> {
     Ok(pipeline)
 }
 pub fn test() -> Result<()> {
-    let vncore_nlp = VnCoreNLP::new()?;
+    let vncore_nlp = VnCoreNLP::new_new()?;
+    // Take sentences user input and segment them indefinitely
     loop {
         println!("Please enter a vietnamese sentence");
         let input = read_string();

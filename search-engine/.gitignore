@@ -1,1 +1,5 @@
 /target
+VNCoreNLP/model/dep/
+VNCoreNLP/model/ner/
+VNCoreNLP/model/postagger/
+VnCoreNLP/VnCoreNLP-1.2.jar
