@@ -11,7 +11,7 @@ create table "article"
     --
     -- as opposed to `inner join article on article.user_id = user.id`, and makes it easier to keep track of primary
     -- keys as opposed to having all PK columns named "id"
-    article_id       uuid primary key                                default uuid_generate_v1mc(),
+    id   text                              default '',
 
     -- By applying our custom collation we can simply mark this column as `unique` and Postgres will enforce
     -- case-insensitive uniqueness for us, and lookups over `username` will be case-insensitive by default.
@@ -29,8 +29,7 @@ create table "article"
     title           text                                   not null default '',
     summary           text                                   not null default '',
     content       text                                   not null default '',
-    article_url       text                                   not null default '',
+    url       text                                   not null default '',
 
-
-    created_at    timestamptz                            not null default now()
+    created_time    timestamptz                            not null default now()
 );
