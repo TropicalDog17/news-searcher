@@ -8,11 +8,11 @@ use axum::{
     Router,
 };
 use search_engine::article::Article;
+use search_engine::wrapper::VnCore;
 use search_engine::*;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::net::SocketAddr;
 use std::time::Duration;
-use tantivy::schema::*;
 use tantivy::{doc, Index};
 use tempfile::TempDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -20,13 +20,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 async fn main() -> anyhow::Result<()> {
     let index_path = TempDir::new()?;
 
-    let text_field_indexing = TextFieldIndexing::default().set_tokenizer("en_stem");
-    let text_options = TextOptions::default()
-        .set_indexing_options(text_field_indexing)
-        .set_stored();
-
     let schema = get_article_schema();
     let index: Index = Index::create_in_dir(&index_path, schema.clone())?;
+    let vn_tokenizer = VnCore::default();
+    index.tokenizers().register("vn_core", vn_tokenizer);
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
