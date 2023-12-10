@@ -2,19 +2,24 @@ use anyhow::Ok;
 use axum::{
     async_trait,
     extract::{FromRef, FromRequestParts, State},
-    http::{request::Parts, StatusCode},
+    http::{header::CONTENT_TYPE, request::Parts, HeaderValue, Method, StatusCode},
     routing::get,
     routing::post,
     Router,
 };
+
 use search_engine::article::Article;
-use search_engine::wrapper::VnCore;
 use search_engine::*;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::net::SocketAddr;
 use std::time::Duration;
-use tantivy::{doc, Index};
+use tantivy::{
+    doc,
+    tokenizer::{AlphaNumOnlyFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer, TextAnalyzer},
+    Index,
+};
 use tempfile::TempDir;
+use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -22,8 +27,14 @@ async fn main() -> anyhow::Result<()> {
 
     let schema = get_article_schema();
     let index: Index = Index::create_in_dir(&index_path, schema.clone())?;
-    let vn_tokenizer = VnCore::default();
-    index.tokenizers().register("vn_core", vn_tokenizer);
+    let tokenizer = TextAnalyzer::builder(SimpleTokenizer::default())
+        .filter(RemoveLongFilter::limit(40))
+        .filter(LowerCaser)
+        .filter(AlphaNumOnlyFilter)
+        .build();
+    index.tokenizers().register("custom", tokenizer);
+    // let vn_tokenizer = VnCore::default();
+    // index.tokenizers().register("vn_core", vn_tokenizer);
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -46,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     let app_state = AppState { pool, index };
     //  indexing articles in db
     println!("Indexing articles in db");
-    let mut index_writer = app_state.index.writer(50_000_000)?;
+    let mut index_writer = app_state.index.writer(5_000_000_000)?;
     let articles = sqlx::query_as::<_, Article>(r#"select * from "article""#)
         .fetch_all(&app_state.pool)
         .await?;
@@ -69,15 +80,20 @@ async fn main() -> anyhow::Result<()> {
     index_writer.commit()?;
 
     // build our application with some routes
-    println!("Server is running on port 3000");
+    println!("Server is running on port 3030");
+    let cors: CorsLayer = CorsLayer::new()
+        .allow_methods([Method::GET, Method::POST])
+        .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
+        .allow_headers([CONTENT_TYPE]);
+
     let app = Router::new()
         .route("/api/articles", post(article::create_article))
         .route("/api/articles", get(article::get_article))
-        .route("/api/articles/query", get(article::query_article))
+        .route("/api/articles/query", post(article::query_article))
+        .layer(cors)
         .with_state(app_state);
-
     // run it with hyper
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], 3030));
     tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)
         .serve(app.into_make_service())

@@ -38,17 +38,27 @@ pub async fn get_article(
 pub struct QueryArticle {
     query: String,
 }
+#[derive(Serialize)]
+pub struct QueryArticleResponse {
+    data: Vec<String>,
+    article_count: usize,
+}
+// TODO: allow pagination
 pub async fn query_article(
     State(app_state): State<AppState>,
     payload: Json<QueryArticle>,
-) -> (StatusCode, Json<Vec<String>>) {
+) -> (StatusCode, Json<QueryArticleResponse>) {
     let query = payload.query.clone();
     let schema = app_state.index.schema();
-    let articles = query_wrapper(app_state.index, query, schema).unwrap();
+    let (count, articles) = query_wrapper(app_state.index, query, schema).unwrap();
     let mut result: Vec<String> = Vec::new();
     for article in articles {
         result.push(article);
     }
+    let result = QueryArticleResponse {
+        article_count: count,
+        data: result,
+    };
     (StatusCode::CREATED, Json(result))
 }
 /// Errors that can happen when using the user repo.
