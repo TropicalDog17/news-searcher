@@ -17,12 +17,13 @@ use std::{path::PathBuf, time::Duration};
 use tantivy::{
     directory::MmapDirectory,
     doc,
+    postings::{Postings, SegmentPostings, TermInfo},
     termdict::{self, TermDictionary},
     tokenizer::{
         AlphaNumOnlyFilter, AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer,
         TextAnalyzer, WhitespaceTokenizer,
     },
-    Directory, Index, SegmentReader,
+    Directory, DocSet, Index, SegmentReader,
 };
 use tempfile::TempDir;
 use tower_http::cors::{Any, CorsLayer};
@@ -62,6 +63,7 @@ async fn main() -> anyhow::Result<()> {
         pool,
         index: index.clone(),
     };
+
     //  indexing articles in db
     println!("Indexing articles in db");
     let mut index_writer = app_state.index.writer(5_000_000_000)?;
@@ -74,32 +76,58 @@ async fn main() -> anyhow::Result<()> {
     let url_field = schema.get_field("url").unwrap();
     let timestamp_field = schema.get_field("created_time").unwrap();
     let id_field = schema.get_field("id").unwrap();
-    for article in articles {
-        index_writer.add_document(doc!(
-            title_field => article.title,
-            content_field => article.content,
-            summary_field => article.summary,
-            url_field => article.url,
-            timestamp_field => article.timestamp,
-            id_field => article.id
-        ))?;
-    }
+    // for article in articles {
+    //     index_writer.add_document(doc!(
+    //         title_field => article.title,
+    //         content_field => article.content,
+    //         summary_field => article.summary,
+    //         url_field => article.url,
+    //         timestamp_field => article.timestamp,
+    //         id_field => article.id
+    //     ))?;
+    // }
     index_writer.commit()?;
     let _ = index_writer.wait_merging_threads();
-    let reader = index.reader()?;
-    let seacher = reader.searcher();
-    let term_dict = seacher.segment_reader(0).inverted_index(summary_field)?;
-    let term_dict = term_dict.terms().to_owned();
-    let mut terms = term_dict.stream().unwrap();
-    let mut file: File = File::create("summary.csv")?;
-    let mut wtr = csv::Writer::from_writer(file);
 
-    while let Some((term, term_info)) = terms.next() {
-        let term = std::str::from_utf8(term)?;
-        let term_freq = term_info.doc_freq;
-        wtr.write_record([term, &term_freq.to_string()])?;
+    // Get term dictionary
+    let reader = index.reader()?;
+    let searcher = reader.searcher();
+    let field_term_dict = [title_field, summary_field, content_field];
+    let field_string = ["title", "summary", "content"];
+    for (idx, field) in field_term_dict.iter().enumerate() {
+        let inverted_index = searcher
+            .segment_reader(0)
+            .inverted_index(field_term_dict[idx])?;
+        let term_dict = inverted_index.terms().to_owned();
+        let mut terms = term_dict.stream().unwrap();
+        println!("Getting term dict of {}", field_string[idx]);
+        let mut file: File = File::create(format!("{}.csv", field_string[idx]))?;
+        let mut wtr = csv::Writer::from_writer(file);
+
+        while let Some((term, term_info)) = terms.next() {
+            let term_str = std::str::from_utf8(term)?;
+            let doc_freq = term_info.doc_freq;
+            let mut posting = inverted_index.read_postings_from_terminfo(
+                term_info,
+                tantivy::schema::IndexRecordOption::WithFreqsAndPositions,
+            )?;
+            let mut posting_list = Vec::new();
+            let mut result = String::new();
+            for _ in 0..doc_freq {
+                posting.positions(&mut posting_list);
+                let doc = posting.doc();
+                let result_str = format!("{} -> {:?}, ", doc, posting_list);
+                posting_list.clear();
+                result.push_str(&result_str);
+                posting.advance();
+            }
+
+            wtr.write_record([term_str, &doc_freq.to_string(), &result])?;
+            result.clear();
+        }
+        println!("{}: {}", field_string[idx], term_dict.num_terms());
     }
-    println!("{}", term_dict.num_terms());
+
     // build our application with some routes
     println!("Server is running on port 3030");
     // let segment = index.new_segment();

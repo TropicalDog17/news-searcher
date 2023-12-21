@@ -1,3 +1,5 @@
 .env
 target/
 index/
+content.csv
+summary.csv
