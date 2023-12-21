@@ -1,7 +1,7 @@
 //! # Example
 //! ```rust
+//! use search_engine::alpha_only_filter::AlphaOnlyFilter;
 //! use tantivy::tokenizer::*;
-//!
 //! let mut tokenizer = TextAnalyzer::builder(RawTokenizer::default())
 //!   .filter(AlphaOnlyFilter)
 //!   .build();
@@ -96,9 +96,9 @@ mod tests {
     use tantivy::tokenizer::{SimpleTokenizer, TextAnalyzer, Token};
     #[test]
     fn test_alphanum_only() {
-        let tokens = token_stream_helper("I am a cat. 我輩は猫である。(1906)");
+        let tokens = token_stream_helper("i am a cat. 我輩は猫である。(1906)");
         assert_eq!(tokens.len(), 4);
-        assert_token(&tokens[0], 0, "I", 0, 1);
+        assert_token(&tokens[0], 0, "i", 0, 1);
         assert_token(&tokens[1], 1, "am", 2, 4);
         assert_token(&tokens[2], 2, "a", 5, 6);
         assert_token(&tokens[3], 3, "cat", 7, 10);
