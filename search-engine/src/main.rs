@@ -129,12 +129,6 @@ async fn main() -> anyhow::Result<()> {
 
     // build our application with some routes
     println!("Server is running on port 3030");
-    // let segment = index.new_segment();
-    // let segment_reader = SegmentReader::open(&segment)?;
-    // let ivt_idx_reader = segment_reader.inverted_index(title_field)?;
-    // let term_dict = ivt_idx_reader.terms();
-    // let term_list = term_dict.num_terms();
-    // println!("Number of terms in title {}", term_list);
     let cors: CorsLayer = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST])
         .allow_origin("http://localhost:3000".parse::<HeaderValue>().unwrap())
