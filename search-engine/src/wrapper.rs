@@ -14,9 +14,9 @@
 // Importing tantivy...
 use tantivy::collector::TopDocs;
 use tantivy::collector::{Count, MultiCollector};
-use tantivy::query::{Query, QueryParser};
-use tantivy::schema::{self, *};
-use tantivy::{doc, Index, ReloadPolicy};
+use tantivy::query::QueryParser;
+use tantivy::schema::*;
+use tantivy::{Index, ReloadPolicy};
 
 pub fn query_wrapper(
     index: Index,
@@ -26,9 +26,9 @@ pub fn query_wrapper(
     let title_field = schema.get_field("title").unwrap();
     let content_field = schema.get_field("content").unwrap();
     let summary_field = schema.get_field("summary").unwrap();
-    let url_field = schema.get_field("url").unwrap();
-    let timestamp_field = schema.get_field("created_time").unwrap();
-    let id_field = schema.get_field("id").unwrap();
+    // let url_field = schema.get_field("url").unwrap();
+    // let timestamp_field = schema.get_field("created_time").unwrap();
+    // let id_field = schema.get_field("id").unwrap();
 
     let reader = index
         .reader_builder()
@@ -43,7 +43,8 @@ pub fn query_wrapper(
     // Here, if the user does not specify which
     // field they want to search, tantivy will search
     // in both title and content.
-    let query_parser = QueryParser::for_index(&index, vec![title_field]);
+    let query_parser =
+        QueryParser::for_index(&index, vec![title_field, summary_field, content_field]);
     // `QueryParser` may fail if the query is not in the right
     // format. For user facing applications, this can be a problem.
     // A ticket has been opened regarding this problem.
@@ -64,7 +65,6 @@ pub fn query_wrapper(
     let count = count_handle.extract(&mut multi_fruit);
 
     println!("Total hits: {}", count);
-    let a = top_docs.len();
     for (_score, doc_address) in top_docs {
         let retrieved_doc = searcher.doc(doc_address)?;
         result.push(schema.to_json(&retrieved_doc));

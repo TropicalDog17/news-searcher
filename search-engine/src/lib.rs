@@ -1,7 +1,7 @@
 use sqlx::postgres::PgPool;
 use tantivy::schema::IndexRecordOption;
 use tantivy::{
-    schema::{Schema, TextFieldIndexing, TextOptions, STORED, STRING, TEXT},
+    schema::{Schema, TextFieldIndexing, TextOptions, STRING, TEXT},
     tokenizer::Token,
     Index,
 };

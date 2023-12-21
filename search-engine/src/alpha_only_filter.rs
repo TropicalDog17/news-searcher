@@ -31,7 +31,7 @@ pub struct AlphaOnlyFilter;
 pub struct AlphaOnlyFilterStream<T> {
     tail: T,
 }
-const vietnamese_eng_characters_with_tone: [char; 93] = [
+const SUPPORTED_CHARACTERS: [char; 93] = [
     'a', 'á', 'à', 'ả', 'ã', 'ạ', 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ', 'b',
     'c', 'd', 'đ', 'e', 'é', 'è', 'ẻ', 'ẽ', 'ẹ', 'ê', 'ế', 'ề', 'ể', 'ễ', 'ệ', 'f', 'g', 'h', 'i',
     'í', 'ì', 'ỉ', 'ĩ', 'ị', 'j', 'k', 'l', 'm', 'n', 'o', 'ó', 'ò', 'ỏ', 'õ', 'ọ', 'ô', 'ố', 'ồ',
@@ -44,7 +44,7 @@ impl<T> AlphaOnlyFilterStream<T> {
         token
             .text
             .chars()
-            .all(|c| vietnamese_eng_characters_with_tone.contains(&c))
+            .all(|c| SUPPORTED_CHARACTERS.contains(&c))
     }
 }
 

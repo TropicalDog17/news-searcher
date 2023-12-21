@@ -1,32 +1,23 @@
 use anyhow::Ok;
 use axum::{
-    async_trait,
-    extract::{FromRef, FromRequestParts, State},
-    http::{header::CONTENT_TYPE, request::Parts, HeaderValue, Method, StatusCode},
+    http::{header::CONTENT_TYPE, HeaderValue, Method},
     routing::get,
     routing::post,
     Router,
 };
+use search_engine::alpha_only_filter::AlphaOnlyFilter;
 use search_engine::*;
-use search_engine::{alpha_only_filter::AlphaOnlyFilter, article::Article};
-use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::postgres::PgPoolOptions;
 use std::fs::File;
-use std::io::Write;
+use std::time::Duration;
 use std::{net::SocketAddr, path::Path};
-use std::{path::PathBuf, time::Duration};
 use tantivy::{
     directory::MmapDirectory,
-    doc,
-    postings::{Postings, SegmentPostings, TermInfo},
-    termdict::{self, TermDictionary},
-    tokenizer::{
-        AlphaNumOnlyFilter, AsciiFoldingFilter, LowerCaser, RemoveLongFilter, SimpleTokenizer,
-        TextAnalyzer, WhitespaceTokenizer,
-    },
-    Directory, DocSet, Index, SegmentReader,
+    postings::Postings,
+    tokenizer::{LowerCaser, RemoveLongFilter, SimpleTokenizer, TextAnalyzer},
+    DocSet, Index,
 };
-use tempfile::TempDir;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -64,18 +55,19 @@ async fn main() -> anyhow::Result<()> {
         index: index.clone(),
     };
 
-    //  indexing articles in db
-    println!("Indexing articles in db");
-    let mut index_writer = app_state.index.writer(5_000_000_000)?;
-    let articles = sqlx::query_as::<_, Article>(r#"select * from "article""#)
-        .fetch_all(&app_state.pool)
-        .await?;
     let title_field = schema.get_field("title").unwrap();
     let content_field = schema.get_field("content").unwrap();
     let summary_field = schema.get_field("summary").unwrap();
-    let url_field = schema.get_field("url").unwrap();
-    let timestamp_field = schema.get_field("created_time").unwrap();
-    let id_field = schema.get_field("id").unwrap();
+    // let url_field = schema.get_field("url").unwrap();
+    // let timestamp_field = schema.get_field("created_time").unwrap();
+    // let id_field = schema.get_field("id").unwrap();
+    // //  indexing articles in db
+    // println!("Indexing articles in db");
+    // let mut index_writer = app_state.index.writer(5_000_000_000)?;
+    // let articles = sqlx::query_as::<_, Article>(r#"select * from "article""#)
+    //     .fetch_all(&app_state.pool)
+    //     .await?;
+
     // for article in articles {
     //     index_writer.add_document(doc!(
     //         title_field => article.title,
@@ -86,22 +78,27 @@ async fn main() -> anyhow::Result<()> {
     //         id_field => article.id
     //     ))?;
     // }
-    index_writer.commit()?;
-    let _ = index_writer.wait_merging_threads();
+    // index_writer.commit()?;
+    // let _ = index_writer.wait_merging_threads();
 
-    // Get term dictionary
+    // Get term dictionary & posting list
     let reader = index.reader()?;
     let searcher = reader.searcher();
     let field_term_dict = [title_field, summary_field, content_field];
     let field_string = ["title", "summary", "content"];
-    for (idx, field) in field_term_dict.iter().enumerate() {
+    let segment_readers_list = searcher.segment_readers();
+    println!("Number of segments: {}", segment_readers_list.len());
+    for (idx, _) in field_term_dict.iter().enumerate() {
         let inverted_index = searcher
             .segment_reader(0)
             .inverted_index(field_term_dict[idx])?;
         let term_dict = inverted_index.terms().to_owned();
         let mut terms = term_dict.stream().unwrap();
-        println!("Getting term dict of {}", field_string[idx]);
-        let mut file: File = File::create(format!("{}.csv", field_string[idx]))?;
+        println!(
+            "Getting term dict and posting list of {}",
+            field_string[idx]
+        );
+        let file: File = File::create(format!("{}.csv", field_string[idx]))?;
         let mut wtr = csv::Writer::from_writer(file);
 
         while let Some((term, term_info)) = terms.next() {
@@ -113,6 +110,8 @@ async fn main() -> anyhow::Result<()> {
             )?;
             let mut posting_list = Vec::new();
             let mut result = String::new();
+
+            // Getting posting list for each term
             for _ in 0..doc_freq {
                 posting.positions(&mut posting_list);
                 let doc = posting.doc();
@@ -142,7 +141,6 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers([CONTENT_TYPE]);
 
     let app = Router::new()
-        .route("/api/articles", post(article::create_article))
         .route("/api/articles", get(article::get_article))
         .route("/api/articles/query", post(article::query_article))
         .layer(cors)

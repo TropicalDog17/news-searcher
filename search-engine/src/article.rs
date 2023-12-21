@@ -2,22 +2,9 @@ use crate::wrapper::query_wrapper;
 use crate::AppState;
 use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgRow;
 use sqlx::types::chrono::{DateTime, Utc};
-use sqlx::{postgres::PgRow, types::Uuid};
-use sqlx::{FromRow, PgPool, Row};
-pub async fn create_article(
-    State(state): State<AppState>,
-    payload: Json<CreateArticle>,
-) -> (StatusCode, Json<CreateArticleResponse>) {
-    let article_id: Uuid = sqlx::query_scalar(
-        r#"insert into "article" (title, summary, content, article_url) values ($1, $2, $3, $4) returning article_id"#,
-    ).bind(payload.title.clone()).bind(payload.summary.clone()).bind(payload.content.clone()).bind(payload.url.clone()).bind(payload.timestamp.clone()).fetch_one(&state.pool).await.unwrap();
-
-    let article = CreateArticleResponse {
-        id: article_id.to_string(),
-    };
-    (StatusCode::CREATED, Json(article))
-}
+use sqlx::{FromRow, Row};
 
 pub async fn get_article(
     State(state): State<AppState>,
@@ -68,14 +55,6 @@ enum ArticleError {
     NotFound,
 }
 #[derive(Deserialize)]
-pub struct CreateArticle {
-    title: String,
-    summary: String,
-    content: String,
-    url: String,
-    timestamp: String,
-}
-#[derive(Deserialize)]
 pub struct GetArticle {
     article_id: String,
 }
@@ -89,10 +68,7 @@ pub struct Article {
     pub url: String,
     pub timestamp: String,
 }
-#[derive(Serialize)]
-pub struct CreateArticleResponse {
-    id: String,
-}
+
 impl<'r> FromRow<'r, PgRow> for Article {
     fn from_row(row: &'r PgRow) -> Result<Self, sqlx::Error> {
         let article = Article {
