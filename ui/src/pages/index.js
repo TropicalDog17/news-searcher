@@ -82,7 +82,7 @@ export default function ShowcaseHN() {
                   <div className="flex-1 font-bold">{job.title}</div>
                   <div className="font-medium shrink-0">{job.summary}</div>
                   <a
-                    href={job.url}
+                    href={`https://dantri.com.vn${job.url}`}
                     target="_blank"
                     className="flex-1 font-medium text-blue-600"
                   >
