@@ -82,51 +82,9 @@ async fn main() -> anyhow::Result<()> {
     // let _ = index_writer.wait_merging_threads();
 
     // Get term dictionary & posting list
-    let reader = index.reader()?;
-    let searcher = reader.searcher();
-    let field_term_dict = [title_field, summary_field, content_field];
-    let field_string = ["title", "summary", "content"];
-    let segment_readers_list = searcher.segment_readers();
-    println!("Number of segments: {}", segment_readers_list.len());
-    for (idx, _) in field_term_dict.iter().enumerate() {
-        let inverted_index = searcher
-            .segment_reader(0)
-            .inverted_index(field_term_dict[idx])?;
-        let term_dict = inverted_index.terms().to_owned();
-        let mut terms = term_dict.stream().unwrap();
-        println!(
-            "Getting term dict and posting list of {}",
-            field_string[idx]
-        );
-        let file: File = File::create(format!("{}.csv", field_string[idx]))?;
-        let mut wtr = csv::Writer::from_writer(file);
-
-        while let Some((term, term_info)) = terms.next() {
-            let term_str = std::str::from_utf8(term)?;
-            let doc_freq = term_info.doc_freq;
-            let mut posting = inverted_index.read_postings_from_terminfo(
-                term_info,
-                tantivy::schema::IndexRecordOption::WithFreqsAndPositions,
-            )?;
-            let mut posting_list = Vec::new();
-            let mut result = String::new();
-
-            // Getting posting list for each term
-            for _ in 0..doc_freq {
-                posting.positions(&mut posting_list);
-                let doc = posting.doc();
-                let result_str = format!("{} -> {:?}, ", doc, posting_list);
-                posting_list.clear();
-                result.push_str(&result_str);
-                posting.advance();
-            }
-
-            wtr.write_record([term_str, &doc_freq.to_string(), &result])?;
-            result.clear();
-        }
-        println!("{}: {}", field_string[idx], term_dict.num_terms());
-    }
-
+    // get_term_dict_and_posting_list(&index, "title")?;
+    // get_term_dict_and_posting_list(&index, "content")?;
+    // get_term_dict_and_posting_list(&index, "summary")?;
     // build our application with some routes
     println!("Server is running on port 3030");
     let cors: CorsLayer = CorsLayer::new()
@@ -146,5 +104,48 @@ async fn main() -> anyhow::Result<()> {
         .serve(app.into_make_service())
         .await
         .unwrap();
+    Ok(())
+}
+
+fn get_term_dict_and_posting_list(index: &Index, field: &str) -> anyhow::Result<()> {
+    // Get term dictionary & posting list
+    let reader = index.reader()?;
+    let searcher = reader.searcher();
+    let field_instance = index.schema().get_field(field).unwrap();
+
+    let segment_readers_list = searcher.segment_readers();
+    println!("Number of segments: {}", segment_readers_list.len());
+
+    let inverted_index = searcher.segment_reader(0).inverted_index(field_instance)?;
+    let term_dict = inverted_index.terms().to_owned();
+    let mut terms = term_dict.stream().unwrap();
+    println!("Getting term dict and posting list of {}", field);
+    let file: File = File::create(format!("{}.csv", field))?;
+    let mut wtr = csv::Writer::from_writer(file);
+
+    while let Some((term, term_info)) = terms.next() {
+        let term_str = std::str::from_utf8(term)?;
+        let doc_freq = term_info.doc_freq;
+        let mut posting = inverted_index.read_postings_from_terminfo(
+            term_info,
+            tantivy::schema::IndexRecordOption::WithFreqsAndPositions,
+        )?;
+        let mut posting_list = Vec::new();
+        let mut result = String::new();
+
+        // Getting posting list for each term
+        for _ in 0..doc_freq {
+            posting.positions(&mut posting_list);
+            let doc = posting.doc();
+            let result_str = format!("{} -> {:?}, ", doc, posting_list);
+            posting_list.clear();
+            result.push_str(&result_str);
+            posting.advance();
+        }
+
+        wtr.write_record([term_str, &doc_freq.to_string(), &result])?;
+        result.clear();
+    }
+    println!("{}: {}", field, term_dict.num_terms());
     Ok(())
 }
