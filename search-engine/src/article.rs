@@ -6,20 +6,20 @@ use sqlx::postgres::PgRow;
 use sqlx::types::chrono::{DateTime, Utc};
 use sqlx::{FromRow, Row};
 
-pub async fn get_article(
-    State(state): State<AppState>,
-    payload: Json<GetArticle>,
-) -> (StatusCode, Json<Article>) {
-    // TODO: handle not found article id
-    let article = sqlx::query_as::<_, Article>(r#"select * from "article" where article_url = $1"#)
-        .bind(payload.article_id.clone())
-        .fetch_one(&state.pool)
-        .await;
-    match article {
-        Ok(article) => (StatusCode::CREATED, Json(article)),
-        Err(_) => panic!("Not found"),
-    }
-}
+// pub async fn get_article(
+//     State(state): State<AppState>,
+//     payload: Json<GetArticle>,
+// ) -> (StatusCode, Json<Article>) {
+//     // TODO: handle not found article id
+//     let article = sqlx::query_as::<_, Article>(r#"select * from "article" where article_url = $1"#)
+//         .bind(payload.article_id.clone())
+//         .fetch_one(&state.pool)
+//         .await;
+//     match article {
+//         Ok(article) => (StatusCode::CREATED, Json(article)),
+//         Err(_) => panic!("Not found"),
+//     }
+// }
 // Query using tantivy
 #[derive(Deserialize)]
 pub struct QueryArticle {

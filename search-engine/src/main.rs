@@ -7,7 +7,7 @@ use axum::{
 };
 use search_engine::alpha_only_filter::AlphaOnlyFilter;
 use search_engine::*;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{postgres::PgPoolOptions, Postgres};
 use std::fs::File;
 use std::time::Duration;
 use std::{net::SocketAddr, path::Path};
@@ -19,6 +19,8 @@ use tantivy::{
 };
 use tower_http::cors::CorsLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use search_engine::article::Article;
+use tantivy::doc;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mmap: MmapDirectory = MmapDirectory::open(Path::new("index"))?;
@@ -39,29 +41,29 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let db_connection_str = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:tropical@localhost/articles".to_string());
+    // let db_connection_str = std::env::var("DATABASE_URL")
+    //     .unwrap_or_else(|_| "postgres://postgres:tropical@localhost/articles".to_string());
 
     // set up connection pool
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .acquire_timeout(Duration::from_secs(3))
-        .connect(&db_connection_str)
-        .await
-        .expect("can't connect to database");
+    // let pool = PgPoolOptions::new()
+    //     .max_connections(5)
+    //     .acquire_timeout(Duration::from_secs(3))
+    //     .connect(&db_connection_str)
+    //     .await
+    //     .expect("can't connect to database");
 
+    // Default empty pool
     let app_state = AppState {
-        pool,
         index: index.clone(),
     };
-
+    // 
     let title_field = schema.get_field("title").unwrap();
     let content_field = schema.get_field("content").unwrap();
     let summary_field = schema.get_field("summary").unwrap();
-    // let url_field = schema.get_field("url").unwrap();
-    // let timestamp_field = schema.get_field("created_time").unwrap();
-    // let id_field = schema.get_field("id").unwrap();
-    // //  indexing articles in db
+    let url_field = schema.get_field("url").unwrap();
+    let timestamp_field = schema.get_field("created_time").unwrap();
+    let id_field = schema.get_field("id").unwrap();
+    //  indexing articles in db
     // println!("Indexing articles in db");
     // let mut index_writer = app_state.index.writer(5_000_000_000)?;
     // let articles = sqlx::query_as::<_, Article>(r#"select * from "article""#)
@@ -81,10 +83,13 @@ async fn main() -> anyhow::Result<()> {
     // index_writer.commit()?;
     // let _ = index_writer.wait_merging_threads();
 
-    // Get term dictionary & posting list
-    // get_term_dict_and_posting_list(&index, "title")?;
-    // get_term_dict_and_posting_list(&index, "content")?;
-    // get_term_dict_and_posting_list(&index, "summary")?;
+    // // Get term dictionary & posting list
+    // // get_term_dict_and_posting_list(&index, "title")?;
+    // // get_term_dict_and_posting_list(&index, "content")?;
+    // // get_term_dict_and_posting_list(&index, "summary")?;
+
+
+    
     // build our application with some routes
     println!("Server is running on port 3030");
     let cors: CorsLayer = CorsLayer::new()
@@ -93,7 +98,6 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers([CONTENT_TYPE]);
 
     let app = Router::new()
-        .route("/api/articles", get(article::get_article))
         .route("/api/articles/query", post(article::query_article))
         .layer(cors)
         .with_state(app_state);

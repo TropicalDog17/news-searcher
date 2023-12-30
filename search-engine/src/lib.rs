@@ -10,7 +10,7 @@ pub mod article;
 pub mod wrapper;
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub pool: PgPool,
+    // pub pool: PgPool,
     pub index: Index,
 }
 pub fn get_article_schema() -> Schema {
