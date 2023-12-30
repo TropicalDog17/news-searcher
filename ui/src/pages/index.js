@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { TrashSimple, CaretDown, Plus, PencilSimple } from "phosphor-react";
 import React, { Fragment, useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -10,11 +9,14 @@ const CONTAINS = "chứa";
 const NOT_CONTAINS = "không chứa";
 const TITLE = "tiêu đề";
 const CONTENT = "nội dung";
+const SUMMARY = "tóm tắt";
 const suggestions = [
   `${TITLE} ${CONTAINS}`,
   `${TITLE} ${NOT_CONTAINS}`,
   `${CONTENT} ${CONTAINS}`,
   `${CONTENT} ${NOT_CONTAINS}`,
+  `${SUMMARY} ${CONTAINS}`,
+  `${SUMMARY} ${NOT_CONTAINS}`,
 ];
 
 export default function ShowcaseHN() {
@@ -65,6 +67,12 @@ export default function ShowcaseHN() {
         query += `(content:"${f.criteria}")`;
       } else if (f.name === `${CONTENT} ${NOT_CONTAINS}`) {
         query += `NOT (content:"${f.criteria}")`;
+      }
+      else if (f.name === `${SUMMARY} ${CONTAINS}`){
+        query += `(summary:"${f.criteria}")`;
+      }
+      else if (f.name === `${SUMMARY} ${NOT_CONTAINS}`){
+        query += `(summary:"${f.criteria}")`;
       }
     });
     console.log(query);
